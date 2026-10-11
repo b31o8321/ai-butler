@@ -69,10 +69,17 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
   4 步 T2V → done，产物 butler_00001_.mp4 落盘 .data/media/（中文提示词
   注入验证 ✓，seed/length 注入 ✓）
 
-### [ ] S5 预设包频道（Web 控制台可勾选）
-- manifest 增加 channel 概念（跑团全家桶/轻量入门/写实人像）
-- 控制台展示频道内容与安装状态，勾选缺失项触发 sync
-- 验收：控制台能展示频道 diff 并触发同步
+### [x] S5 预设包频道（Web 控制台可勾选）
+- channels.py：ChannelStore（configs/channels/*.yaml）+ channel_diff
+  （对照 manifest 与 models_root 的 PRESENT/MISSING 状态）+ install_channel（复用 sync_missing）
+- API：GET /admin/channels（diff）、POST /admin/channels/{id}/install（异步任务）
+- manifest 新增显式 filename 字段（源 basename ≠ 落盘名时声明，避免误报缺失/重复下载）
+- 控制台：频道卡（描述/模型状态点/安装缺失项按钮/预设清单）
+- 内置频道：dzmm-pack（跑团全家桶 8 项）/ starter（占位）
+- 测试：4 项新增（加载/diff 状态/未知模型报错/install 下载）
+- 验收：pytest 61 绿；实机 diff 显示 7/8 PRESENT（修复 filename 前误报 2 缺失）、
+  install 异步任务真实下载缺失项 → done（present=5 downloaded=2）
+  ⚠️ 教训：PowerShell -replace 写回破坏中文 → 用 git checkout 恢复后以 Edit 工具修改
 
 ### [ ] S6 LLM 别名路由（OpenAI 兼容端点）
 - /v1/chat/completions：按 gateway.yaml routes.llm.prefer 顺序路由到 ollama/lmstudio 适配器，

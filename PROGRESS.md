@@ -5,6 +5,14 @@
 
 ## 已完成
 
+- 2026-10-13 S5 预设包频道 — commit bd7783f
+  - channels.py：频道=manifest 命名字集 + workflows/presets 引用；diff 与 install（复用 S3 sync）
+  - API：GET /admin/channels、POST /admin/channels/{id}/install（异步任务，走 S4 任务状态机）
+  - manifest 新增显式 filename 字段（修复 t2v_nsfw LoRA 误报缺失+重复下载问题）
+  - 控制台：频道区（状态点/安装按钮/预设清单）
+  - 验证：pytest 61 绿；实机 dzmm-pack diff：7/8 PRESENT、install 异步下载缺失 2 项 → done
+  - 教训：PowerShell -replace 写回含中文文件会乱码——一律用 Edit 工具改文件
+
 - 2026-10-12/13 S4 预设执行 — commit e4038dc
   - kernel/tasks.py 通用任务状态机；presets.py 加载/解析/注入引擎（数据驱动）
   - comfyui-adapter.execute 闭环：注入 → /prompt → 轮询 → /view 取回产物落盘
