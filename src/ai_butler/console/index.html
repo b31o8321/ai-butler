@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ai-butler 控制台</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: #14100c; color: #e8dcc4; }
+  header { display: flex; align-items: baseline; gap: 14px;
+           padding: 18px 26px; border-bottom: 1px solid #4d3f2a; }
+  header h1 { margin: 0; font-size: 20px; color: #f2e6c8; }
+  header span { color: #b3a488; font-size: 12px; }
+  main { padding: 22px 26px; display: grid; gap: 16px; max-width: 960px; margin: 0 auto; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .card { border: 1px solid #4d3f2a; border-radius: 10px; padding: 16px 18px;
+          background: #262019; min-width: 260px; flex: 1; }
+  .card h3 { margin: 0 0 8px; font-size: 15px; color: #f2e6c8; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+         margin-right: 8px; vertical-align: middle; }
+  .ok { background: #9ab073; } .down { background: #d4744a; }
+  .off { background: #6f5c40; }
+  .meta { color: #b3a488; font-size: 12.5px; line-height: 1.7; }
+  .pill { border: 1px solid #63513a; border-radius: 999px; padding: 2px 9px;
+          font-size: 11px; color: #c9b998; margin-right: 6px; }
+  #updated { color: #6f5c40; font-size: 11px; }
+  code { color: #e8c68e; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ai-butler 控制台</h1>
+  <span id="version"></span>
+  <span style="margin-left:auto" id="updated"></span>
+</header>
+<main>
+  <div class="row" id="adapters"></div>
+  <div class="card">
+    <h3>策略 / 路由</h3>
+    <div class="meta" id="policy">loading…</div>
+  </div>
+</main>
+<script>
+const dot = ok => `<span class="dot ${ok ? 'ok' : 'down'}"></span>`;
+const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+async function refresh() {
+  try {
+    const r = await fetch('/admin/status');
+    const s = await r.json();
+    document.getElementById('version').textContent = 'v' + s.version;
+    document.getElementById('updated').textContent =
+      '更新于 ' + new Date().toLocaleTimeString();
+    document.getElementById('adapters').innerHTML = s.adapters.map(a => `
+      <div class="card">
+        <h3>${dot(a.ok)}${esc(a.name)}</h3>
+        <div class="meta">
+          ${a.enabled ? '' : '<span class="pill">已在配置中禁用</span>'}
+          ${esc(a.detail || '')}
+          ${(a.models && a.models.length) ? '<br>模型: ' + a.models.slice(0, 6).map(esc).join(', ') +
+            (a.models.length > 6 ? ` 等 ${a.models.length} 个` : '') : ''}
+        </div>
+      </div>`).join('');
+    document.getElementById('policy').innerHTML =
+      `并发上限 <code>${s.policy.max_concurrent_tasks}</code> ·
+       GPU 独占窗口 <code>${s.policy.gpu_exclusive_window_minutes} 分钟</code><br>
+       LLM 优先: <code>${esc((s.routes.llm_prefer || []).join(', ') || '-')}</code> ·
+       回退: <code>${esc((s.routes.llm_fallback || []).join(', ') || '-')}</code>`;
+  } catch (e) {
+    document.getElementById('updated').textContent = '无法连接内核: ' + e;
+  }
+}
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>
