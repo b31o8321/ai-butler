@@ -5,6 +5,18 @@
 
 ## 已完成
 
+- 2026-10-13 S6 LLM 别名路由 — commit (本轮)
+  - llm_router.py：别名解析/回退链/非流式+流式（首块提交制回退）
+  - 适配器 chat：ollama 原生格式↔OpenAI 双向转换 + NDJSON→SSE；openai_compat SSE 透传
+  - API：POST /v1/chat/completions（stream 支持）、/v1/models 列别名；
+    gateway.yaml 新增 llm_aliases；适配器双索引（name+alias）
+  - 验证：pytest 71 绿（新增 10）；实机别名 qwen3-14b → 真实 LM Studio
+    Qwen3-14B 完成 GM 开场对话（37.5s）
+  - 教训：①重写适配器文件时 transport 注入容易丢（测试立刻抓到）；
+    ②backend 名（lmstudio）与适配器名（openai_compat）需双索引；
+    ③冒烟前先确认旧服务已停（端口复用会打到旧代码）
+  - 遗留：qwen3 <think> 段透传（DZMM 端有清洗）；流式回退仅首块前生效（S8 策略引擎回顾）
+
 - 2026-10-13 S5 预设包频道 — commit bd7783f
   - channels.py：频道=manifest 命名字集 + workflows/presets 引用；diff 与 install（复用 S3 sync）
   - API：GET /admin/channels、POST /admin/channels/{id}/install（异步任务，走 S4 任务状态机）

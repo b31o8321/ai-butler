@@ -17,6 +17,7 @@ from .channels import ChannelStore, channel_diff, install_channel
 from .config import GatewayConfig, load_manifest
 from .kernel.registry import Registry
 from .kernel.tasks import TaskStore
+from .llm_router import LLMRouter
 from .presets import PresetStore, resolve_params
 from .runtime_manager import RuntimeManager, detect_hardware
 from .spi import BaseAdapter
@@ -26,7 +27,8 @@ def create_app(config: GatewayConfig, registry: Registry,
                runtime_manager: RuntimeManager | None = None,
                preset_store: PresetStore | None = None,
                task_store: TaskStore | None = None,
-               executor: Any = None) -> FastAPI:
+               executor: Any = None,
+               llm_router: Any = None) -> FastAPI:
     app = FastAPI(title="ai-butler", version=__version__, docs_url="/docs")
     adapters: list[BaseAdapter] = build_adapters(config)
     app.state.config = config
@@ -61,6 +63,9 @@ def create_app(config: GatewayConfig, registry: Registry,
 
     run_executor = executor or default_executor
     app.state.executor = run_executor
+    llm_router = llm_router or LLMRouter(adapters, config.llm_aliases,
+                                         config.routes.llm_prefer, config.routes.llm_fallback)
+    app.state.llm_router = llm_router
 
     console_dir = Path(__file__).parent / "console"
 
@@ -225,10 +230,27 @@ def create_app(config: GatewayConfig, registry: Registry,
 
     @app.get("/v1/models")
     async def list_models():
-        """OpenAI-compatible discovery. Real alias routing lands in S6."""
-        data = [{"id": f"butler/{a.name}", "object": "model", "owned_by": "ai-butler"}
-                for a in adapters if a.enabled]
-        return {"object": "list", "data": data, "note": "stub until S6 alias routing"}
+        """OpenAI-compatible discovery: configured LLM aliases."""
+        data = [{"id": alias, "object": "model", "owned_by": "ai-butler"}
+                for alias in config.llm_aliases]
+        return {"object": "list", "data": data}
+
+    @app.post("/v1/chat/completions")
+    async def chat_completions(body: dict[str, Any]):
+        model = str(body.get("model") or "")
+        messages = body.get("messages") or []
+        if not model or not messages:
+            raise HTTPException(status_code=400,
+                                detail="model (alias) and messages are required")
+        stream = bool(body.get("stream"))
+        try:
+            if stream:
+                from fastapi.responses import StreamingResponse
+                return StreamingResponse(llm_router.chat_stream(model, messages),
+                                         media_type="text/event-stream")
+            return await llm_router.chat(model, messages)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     app.mount("/console", StaticFiles(directory=str(console_dir), html=True), name="console")
     return app

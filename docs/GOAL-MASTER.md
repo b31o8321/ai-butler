@@ -81,12 +81,19 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
   install 异步任务真实下载缺失项 → done（present=5 downloaded=2）
   ⚠️ 教训：PowerShell -replace 写回破坏中文 → 用 git checkout 恢复后以 Edit 工具修改
 
-### [ ] S6 LLM 别名路由（OpenAI 兼容端点）
-- /v1/chat/completions：按 gateway.yaml routes.llm.prefer 顺序路由到 ollama/lmstudio 适配器，
-  别名（butler/qwen3-14b）→ 实际模型映射存 gateway.yaml
-- 流式透传（SSE）；回退链按序尝试
-- 测试：mock 上游的端到端单测
-- 验收：DZMM 模型档案指向网关别名，完成一次真实对话
+### [x] S6 LLM 别名路由（OpenAI 兼容端点）
+- llm_router.py：别名→(backend, model) 解析 + 回退链（prefer/fallback）+
+  非流式 chat 与流式 chat_stream（首块提交制：开始流式后不再回退）
+- 适配器 chat 能力：ollama 原生 /api/chat ↔ OpenAI 格式双向转换（含 NDJSON 流→SSE）；
+  openai_compat 直通（含 SSE 透传）
+- API：POST /v1/chat/completions（stream=true → SSE）、/v1/models 列别名；
+  gateway.yaml 新增 llm_aliases 段
+- 适配器双索引：backend 名（lmstudio）与适配器名（openai_compat）都可解析
+- 测试：10 项新增（格式转换/别名解析/回退链/全败/流式/API 端到端/SSE）
+- 验收：pytest 71 绿；实机别名 qwen3-14b → 真实 LM Studio Qwen3-14B 对话成功
+  （GM 开场叙事，37.5s）——DZMM 只需把模型档案指向网关别名即可
+  ⚠️ 已知边界：qwen3 思考模式会在内容里带 <think> 段（LM Studio 侧透传），
+  DZMM 端有 think 清洗逻辑；流式回退仅在首块前生效
 
 ### [ ] S7 第一个 plan-adapter（按用户实际订阅选型，开工前询问用户）
 - 独立模块，实现 OpenAI 兼容出口；仅个人使用；探活失败告警

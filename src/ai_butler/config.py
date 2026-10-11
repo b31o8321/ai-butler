@@ -55,6 +55,7 @@ class GatewayConfig:
     adapters: dict[str, AdapterConfig] = field(default_factory=dict)
     runtimes: dict[str, dict[str, Any]] = field(default_factory=dict)
     paths: dict[str, str] = field(default_factory=dict)
+    llm_aliases: dict[str, dict[str, str]] = field(default_factory=dict)
     source_file: Path | None = None
 
 
@@ -135,6 +136,7 @@ def load_gateway(path: Path) -> GatewayConfig:
                   for name, spec in adapters_raw.items()},
         runtimes={name: dict(spec) for name, spec in (raw.get("runtimes") or {}).items()},
         paths={k: str(v) for k, v in (raw.get("paths") or {}).items()},
+        llm_aliases={k: dict(v) for k, v in (raw.get("llm_aliases") or {}).items()},
         source_file=path,
     )
     return cfg

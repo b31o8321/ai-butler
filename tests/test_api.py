@@ -44,13 +44,13 @@ def test_admin_status_records_event(client):
     assert len(r2.json()["events"]) >= 1
 
 
-def test_v1_models_stub(client):
+def test_v1_models_lists_aliases(client):
     r = client.get("/v1/models")
     assert r.status_code == 200
     body = r.json()
     assert body["object"] == "list"
     ids = {m["id"] for m in body["data"]}
-    assert "butler/comfyui" in ids
+    assert "qwen3-14b" in ids  # gateway.example.yaml alias
 
 
 def test_probe_unknown_adapter_404(client):

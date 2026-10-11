@@ -5,8 +5,12 @@ server:
 
 routes:
   llm:
-    prefer: [ollama, lmstudio]     # 优先本地运行时
-    fallback: []                   # 可挂 plan-adapter / 云端
+    prefer: [ollama, lmstudio]     # 优先本地
+    fallback: []                   # GPU 忙/本地宕机时的回退链
+llm_aliases:                       # 消费方（DZMM 等）只填这里的别名
+  qwen3-14b:
+    backend: lmstudio
+    model: huihui-ai_qwen3-14b-abliterated
 policy:
   gpu_exclusive_window: { minutes: 30 }   # ComfyUI 生图期间 LLM 走回退
   max_concurrent_tasks: 1
