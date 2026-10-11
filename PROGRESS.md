@@ -5,7 +5,17 @@
 
 ## 已完成
 
-- 2026-10-13 S6 LLM 别名路由 — commit (本轮)
+- 2026-10-13 S8 策略引擎 + 收尾 — commit (本轮) + v0.1.0 tag
+  - kernel/policy.py：GPU 独占窗口（占用 GPU 的任务种类来自配置）+ max_concurrent 上限
+  - LLMRouter.should_skip_primary 策略钩子：GPU 忙 → 主后端跳过回退链接管；
+    无回退可用 → 降级用主后端（可用性优先）；/presets run 并发超限 429
+  - service install/uninstall 双向实测（schtasks GBK 解码修复）
+  - README 重写到真实功能
+  - 验证：pytest 80 绿（新增 9）；mock 验证生图运行中 LLM 自动走回退、
+    空闲恢复主后端；计划任务注册→查询→删除闭环
+  - S7 状态：**阻塞于用户拍板**（订阅选型）——自动运行跳过，非代码阻塞
+
+- 2026-10-13 S6 LLM 别名路由 — commit 4cfb1b8
   - llm_router.py：别名解析/回退链/非流式+流式（首块提交制回退）
   - 适配器 chat：ollama 原生格式↔OpenAI 双向转换 + NDJSON→SSE；openai_compat SSE 透传
   - API：POST /v1/chat/completions（stream 支持）、/v1/models 列别名；

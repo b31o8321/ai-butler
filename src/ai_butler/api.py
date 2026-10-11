@@ -16,6 +16,7 @@ from .adapters import build_adapters
 from .channels import ChannelStore, channel_diff, install_channel
 from .config import GatewayConfig, load_manifest
 from .kernel.registry import Registry
+from .kernel.policy import PolicyEngine
 from .kernel.tasks import TaskStore
 from .llm_router import LLMRouter
 from .presets import PresetStore, resolve_params
@@ -63,8 +64,11 @@ def create_app(config: GatewayConfig, registry: Registry,
 
     run_executor = executor or default_executor
     app.state.executor = run_executor
-    llm_router = llm_router or LLMRouter(adapters, config.llm_aliases,
-                                         config.routes.llm_prefer, config.routes.llm_fallback)
+    policy = PolicyEngine(app.state.task_store, config.policy.__dict__)
+    app.state.policy = policy
+    llm_router = llm_router or LLMRouter(
+        adapters, config.llm_aliases, config.routes.llm_prefer,
+        config.routes.llm_fallback, should_skip_primary=policy.llm_should_fallback)
     app.state.llm_router = llm_router
 
     console_dir = Path(__file__).parent / "console"
@@ -152,6 +156,9 @@ def create_app(config: GatewayConfig, registry: Registry,
             values = resolve_params(preset, params)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        allowed, reason = app.state.policy.can_start_gpu_task()
+        if preset.kind in app.state.policy.gpu_task_kinds and not allowed:
+            raise HTTPException(status_code=429, detail=reason)
 
         task_store: TaskStore = app.state.task_store
         task_id = uuid.uuid4().hex[:12]

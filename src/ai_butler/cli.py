@@ -125,19 +125,19 @@ def _cmd_service(args) -> int:
     import subprocess
 
     task = "ai-butler"
+    enc = "gbk" if sys.platform == "win32" else "utf-8"
     if args.action == "install":
         pythonw = Path(sys.executable).with_name("pythonw.exe")
-        cmd = f'"{pythonw}" -m ai_butler serve --port {args.port}'
-        run = f'"{sys.executable}"' if not pythonw.exists() else f'"{pythonw}"'
+        run = f'"{pythonw}"' if pythonw.exists() else f'"{sys.executable}"'
         cmd = f"{run} -m ai_butler serve --port {args.port}"
         result = subprocess.run(
             ["schtasks", "/Create", "/TN", task, "/TR", cmd, "/SC", "ONLOGON", "/F"],
-            capture_output=True, text=True)
+            capture_output=True, text=True, encoding=enc, errors="replace")
         print(result.stdout or result.stderr)
         return result.returncode
     if args.action == "uninstall":
         result = subprocess.run(["schtasks", "/Delete", "/TN", task, "/F"],
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, encoding=enc, errors="replace")
         print(result.stdout or result.stderr)
         return result.returncode
     print("unknown action")

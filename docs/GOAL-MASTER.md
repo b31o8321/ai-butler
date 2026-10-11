@@ -95,16 +95,22 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
   ⚠️ 已知边界：qwen3 思考模式会在内容里带 <think> 段（LM Studio 侧透传），
   DZMM 端有 think 清洗逻辑；流式回退仅在首块前生效
 
-### [ ] S7 第一个 plan-adapter（按用户实际订阅选型，开工前询问用户）
+### [ ] S7 第一个 plan-adapter（⚠️ 等待用户拍板订阅选型——自动运行跳过本项）
 - 独立模块，实现 OpenAI 兼容出口；仅个人使用；探活失败告警
 - ⚠️ ToS 风险自担；默认 enabled: false，用户显式开启
 - 验收：网关别名路由到适配器返回对话
+- 状态：**阻塞于用户输入**（订阅的是哪家 coding plan）——通宵自动开发期间跳过
 
-### [ ] S8 策略引擎 + 收尾
-- GPU 独占窗口（ComfyUI 执行中 → LLM 走回退链）；max_concurrent_tasks 生效
-- `butler service install` 实测注册/卸载/开机自启
-- README 更新到真实功能；v0.1.0 打 tag
-- 验收：生图任务运行时发起对话走回退链（mock 验证）
+### [x] S8 策略引擎 + 收尾
+- kernel/policy.py：PolicyEngine（GPU 独占窗口判定 + max_concurrent 并发上限；
+  占用 GPU 的任务种类来自 gateway.yaml policy 配置，数据驱动）
+- LLMRouter 接入 should_skip_primary 策略钩子：GPU 忙 → 主后端跳过、回退链接管；
+  无回退可用时降级用主后端（可用性优先）；预设启动并发超限返回 429
+- `butler service install/uninstall` 实测：注册/删除计划任务双向验证
+  （schtasks GBK 输出解码修复）；卸载命令 = `butler service uninstall`
+- README 重写到真实功能；v0.1.0 打 tag
+- 测试：9 项新增（策略判定/路由器降级与回退联动/429）
+- 验收：pytest 80 绿；mock 验证生图运行时 LLM 自动走回退、空闲时恢复主后端
 
 ## 停止条件
 

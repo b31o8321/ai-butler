@@ -68,3 +68,6 @@ class TaskStore:
             "SELECT id, kind, status, created FROM tasks ORDER BY created DESC LIMIT ?",
             (limit,)).fetchall()
         return [{"id": r[0], "kind": r[1], "status": r[2], "created": r[3]} for r in rows]
+
+    def running_tasks(self) -> list[dict]:
+        return [t for t in self.recent_tasks(200) if t["status"] == "running"]

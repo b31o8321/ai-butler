@@ -5,12 +5,13 @@ chat()/chat_stream(). Alias map and fallback chain are pure configuration.
 """
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 
 class LLMRouter:
     def __init__(self, adapters: list[Any], aliases: dict[str, dict[str, str]],
-                 prefer: list[str], fallback: list[str]) -> None:
+                 prefer: list[str], fallback: list[str],
+                 should_skip_primary: Callable[[], tuple[bool, str]] | None = None) -> None:
         # index by adapter name AND its alias (openai_compat also answers to
         # its runtime key, e.g. 'lmstudio')
         self.adapters: dict[str, Any] = {}
@@ -21,6 +22,7 @@ class LLMRouter:
         self.aliases = aliases
         self.prefer = list(prefer)
         self.fallback = list(fallback)
+        self.should_skip_primary = should_skip_primary  # policy hook (S8)
 
     def resolve(self, model_alias: str) -> list[tuple[Any, str]]:
         """Return the ordered (adapter, model_name) attempt chain for an alias.
@@ -28,6 +30,8 @@ class LLMRouter:
         Explicit alias -> its declared backend first, then configured fallback
         adapters (same model name — works when backends share naming).
         Unknown alias -> prefer list then fallback list with the alias as model.
+        When the policy engine reports a GPU-busy window, the primary attempt
+        is skipped so traffic defers to the fallback chain (S8).
         """
         attempts: list[tuple[str, str]] = []
         spec = self.aliases.get(model_alias)
@@ -37,11 +41,23 @@ class LLMRouter:
             attempts.extend((b, model_alias) for b in self.prefer)
         attempts.extend((b, model_alias) for b in self.fallback
                         if b not in [a[0] for a in attempts])
+        skip_primary = False
+        skip_reason = ""
+        if self.should_skip_primary is not None:
+            skip_primary, skip_reason = self.should_skip_primary()
+        if skip_primary and len(attempts) > 1:
+            attempts = attempts[1:]  # defer primary; fallback chain takes over
         chain = []
         for backend, model_name in attempts:
             adapter = self.adapters.get(backend)
             if adapter is not None and getattr(adapter, "enabled", True):
                 chain.append((adapter, model_name))
+        if skip_primary and not chain:
+            # deferral left nothing usable — degraded service beats hard failure
+            for backend, model_name in attempts[:1]:
+                adapter = self.adapters.get(backend)
+                if adapter is not None:
+                    chain.append((adapter, model_name))
         return chain
 
     async def chat(self, model_alias: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
