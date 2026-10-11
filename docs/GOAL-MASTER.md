@@ -54,11 +54,20 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
   ⚠️ 已知边界：部分 CDN 对小文件 Range 响应头不一致（content-length 虚高），
   测速与续传已做容忍；resume 遇此类源可能失败（全量下载不受影响）
 
-### [ ] S4 comfyui-adapter execute（预设执行）
-- 按 preset 的 inject 映射把参数写入工作流 JSON → POST /prompt → 轮询 /history → 取回产物落盘
-- POST /presets/{name}/run + GET /tasks/{id}（任务状态机 queued→running→done|failed）
-- 用 configs/presets/snow-cat-t2v.example.yaml 对真实 ComfyUI 跑通一次 4 步 T2V
-- 验收：一条命令/一个 curl 出图，产物路径在任务结果里
+### [x] S4 comfyui-adapter execute（预设执行）
+- kernel/tasks.py：通用任务状态机（queued→running→done|failed，非法流转拒绝）
+- presets.py：PresetStore（多目录扫描）+ resolve_params（defaults 合并/必填/seed
+  类型转换/max 校验）+ apply_injection（数据驱动写入节点字段，内核零领域词）
+- comfyui-adapter.execute：加载工作流 → 注入 → POST /prompt → 轮询 /history →
+  /view 取回产物落盘 media/<task>/
+- API：GET /presets、GET/POST /presets/{id}/run、GET /tasks/{id}、GET /tasks
+  （后台线程执行，失败标记 failed+error）
+- 内置工作流 configs/workflows/snow_cat_t2v.json（已验证的 4 步 T2V 图，
+  lightx2v 双 LoRA，节点 id 与 preset inject 对齐）
+- 测试：20 项新增（注入/解析/任务状态机/mock ComfyUI 端到端/API 流转）
+- 验收：pytest 57 绿；实机 POST /presets/snow-cat-t2v/run → 真实 ComfyUI
+  4 步 T2V → done，产物 butler_00001_.mp4 落盘 .data/media/（中文提示词
+  注入验证 ✓，seed/length 注入 ✓）
 
 ### [ ] S5 预设包频道（Web 控制台可勾选）
 - manifest 增加 channel 概念（跑团全家桶/轻量入门/写实人像）

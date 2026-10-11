@@ -5,7 +5,20 @@
 
 ## 已完成
 
-- 2026-10-13 S3 manifest check/sync — commit (本轮)
+- 2026-10-12/13 S4 预设执行 — commit e4038dc
+  - kernel/tasks.py 通用任务状态机；presets.py 加载/解析/注入引擎（数据驱动）
+  - comfyui-adapter.execute 闭环：注入 → /prompt → 轮询 → /view 取回产物落盘
+  - API：/presets 列表与详情、/presets/{id}/run（异步线程）、/tasks/{id}、/tasks
+  - 内置工作流 snow_cat_t2v.json（节点 id 与 preset inject 对齐）
+  - 验证：pytest 57 绿（新增 20）；实机 POST /presets/snow-cat-t2v/run →
+    真实 ComfyUI 4 步 T2V → done → butler_00001_.mp4 落盘 .data/media/
+  - 调试记录：①workflow 相对路径基准 = configs 根（preset 已带 workflows/ 前缀）；
+    ②execute 的 httpx.Client 必须接注入的 transport（可测性）；③mock ComfyUI
+    首次 history 轮询须返回 pending
+  - 遗留：presets 目录有两个近似文件（.yaml 功能版 + .example.yaml 格式示例），
+    S5 做频道时清理；控制台预设 UI 留给 S5
+
+- 2026-10-13 S3 manifest check/sync — commit 4c6c25d
   - sync.py：URL 构建（4 类源、按段转义）、镜像测速、断点续传、sha256 校验、聚合报告
   - CLI：check 升级（models_root 三级解析）+ 新增 sync 命令（--only 过滤）；
     gateway.yaml 缺失时 check/sync 可独立运行
