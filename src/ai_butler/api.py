@@ -12,15 +12,19 @@ from . import __version__
 from .adapters import build_adapters
 from .config import GatewayConfig
 from .kernel.registry import Registry
+from .runtime_manager import RuntimeManager, detect_hardware
 from .spi import BaseAdapter
 
 
-def create_app(config: GatewayConfig, registry: Registry) -> FastAPI:
+def create_app(config: GatewayConfig, registry: Registry,
+               runtime_manager: RuntimeManager | None = None) -> FastAPI:
     app = FastAPI(title="ai-butler", version=__version__, docs_url="/docs")
     adapters: list[BaseAdapter] = build_adapters(config)
     app.state.config = config
     app.state.registry = registry
     app.state.adapters = adapters
+    manager = runtime_manager or RuntimeManager(config, registry, adapters=adapters)
+    app.state.runtime_manager = manager
 
     console_dir = Path(__file__).parent / "console"
 
@@ -57,6 +61,32 @@ def create_app(config: GatewayConfig, registry: Registry) -> FastAPI:
             if adapter.name == name:
                 return await adapter.probe()
         raise HTTPException(status_code=404, detail=f"unknown adapter: {name}")
+
+    @app.get("/admin/hardware")
+    async def admin_hardware() -> dict[str, Any]:
+        return manager.detect_hardware()
+
+    @app.get("/admin/runtimes")
+    async def admin_runtimes() -> dict[str, Any]:
+        return {"runtimes": await manager.status_all()}
+
+    @app.post("/admin/runtimes/{name}/start")
+    async def runtime_start(name: str) -> dict[str, Any]:
+        try:
+            return manager.start(name)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/admin/runtimes/{name}/stop")
+    async def runtime_stop(name: str) -> dict[str, Any]:
+        try:
+            return manager.stop(name)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/v1/models")
     async def list_models():

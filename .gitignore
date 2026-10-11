@@ -8,7 +8,8 @@ venv/
 *.db
 secrets/
 ~/.git-credentials
-# runtime artifacts
+# runtime artifacts & local overrides
+.data/
 media/
 dist/
 build/

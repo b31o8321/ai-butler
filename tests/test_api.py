@@ -61,3 +61,60 @@ def test_console_served(client):
     r = client.get("/console/")
     assert r.status_code == 200
     assert "ai-butler" in r.text
+
+
+# ---------- S2 runtime endpoints (stubbed manager) ----------
+
+class StubManager:
+    def __init__(self):
+        self.calls = []
+        self.hardware = {"gpus": [{"name": "FakeGPU", "vram_bytes": 8 * 1024**3}],
+                         "ram": {"total_bytes": 1, "free_bytes": 1}, "disks": []}
+        self.runtimes = [{"name": "ollama", "url": "http://x", "alive": False,
+                          "detail": "stub", "start_configured": True, "managed_pid": None}]
+
+    def detect_hardware(self):
+        return self.hardware
+
+    async def status_all(self):
+        return self.runtimes
+
+    def start(self, name):
+        self.calls.append(("start", name))
+        return {"ok": True, "pid": 1234}
+
+    def stop(self, name):
+        self.calls.append(("stop", name))
+        return {"ok": True, "pid": 1234, "still_alive": False}
+
+
+def test_admin_hardware_endpoint(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    app = create_app(cfg, Registry(tmp_path / "db.db"), runtime_manager=StubManager())
+    with TestClient(app) as c:
+        r = c.get("/admin/hardware")
+        assert r.status_code == 200
+        assert r.json()["gpus"][0]["name"] == "FakeGPU"
+
+
+def test_runtime_start_stop_endpoints(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    mgr = StubManager()
+    app = create_app(cfg, Registry(tmp_path / "db.db"), runtime_manager=mgr)
+    with TestClient(app) as c:
+        assert c.get("/admin/runtimes").status_code == 200
+        assert c.post("/admin/runtimes/ollama/start").status_code == 200
+        assert c.post("/admin/runtimes/ollama/stop").status_code == 200
+        assert mgr.calls == [("start", "ollama"), ("stop", "ollama")]
+
+
+def test_runtime_start_readonly_400(tmp_path):
+    class ReadOnlyManager(StubManager):
+        def start(self, name):
+            raise ValueError("runtime 'comfyui' has no start_command configured (read-only)")
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    app = create_app(cfg, Registry(tmp_path / "db.db"), runtime_manager=ReadOnlyManager())
+    with TestClient(app) as c:
+        r = c.post("/admin/runtimes/comfyui/start")
+        assert r.status_code == 400
+        assert "read-only" in r.json()["detail"]

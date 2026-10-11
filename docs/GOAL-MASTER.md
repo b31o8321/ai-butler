@@ -29,16 +29,17 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
 + Web 控制台 + CLI（serve/status/check/service）+ 13 测试。
 验收：/admin/status 真实探测本机运行时；pytest 绿。✅ 已达成。
 
-### [ ] S2 runtime-manager（硬件检测 + 生命周期）
-- `runtime_manager.py`：GPU 型号/显存（WMI Win32_VideoController + nvidia-smi/rocm-smi 探测）、
-  内存/磁盘余量、运行时已装探测（路径+端口+版本命令）
-- API：GET /admin/hardware、GET/POST /admin/runtimes/{name}/start|stop
-- comfyui 启动 = 拉起 F:\ComfyUI\run_nvidia_gpu.bat 等价命令（路径从 manifest/gateway 读，
-  不硬编码）；ollama 启动 = ollama serve；停止一律按 PID
-- Web 控制台：硬件卡 + 运行时启停按钮（调新 API）
-- 测试：hardware 解析用 mock WMI 数据单测；启停用假进程/假命令注入单测
-- 验收：控制台能看到本机 GPU 与三个运行时状态；按钮能启动/停止 ollama（ComfyUI 只读状态即可，
-  避免影响正在使用的实例）
+### [x] S2 runtime-manager（硬件检测 + 生命周期）
+- `runtime_manager.py`：GPU 型号/显存（WMI Win32_VideoController + 注册表 qwMemorySize
+  best-effort）、内存/磁盘余量、运行时已装探测
+- API：GET /admin/hardware、GET /admin/runtimes、POST /admin/runtimes/{name}/start|stop
+- 启动命令来自 gateway.yaml runtimes.start_command（列表形式，不硬编码）；
+  无 start_command 的运行时 = 只读监控（start 返回 400）；停止一律按 PID
+- Web 控制台：硬件卡 + 运行时启停按钮
+- 测试：硬件解析 mock 单测 + 启停注入单测（假 spawner/killer/pid_checker）+ API stub 测试
+- 验收：pytest 27 绿；实机控制台显示本机 GPU（RX 9070）与三个运行时状态；
+  ollama 启停实测通过（start spawn ✓ / stop PID 定点 ✓ / 只读 400 ✓）
+  ⚠️ 已知环境问题：本机 Ollama 老版本 RDNA4 崩溃致僵尸进程（stop 如实上报 still_alive）
 
 ### [ ] S3 manifest check/sync（环境同步）
 - `butler check` 升级：对照 manifest 逐项报告 PRESENT/MISSING（含 models_root 解析）

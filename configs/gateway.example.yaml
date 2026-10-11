@@ -16,3 +16,13 @@ adapters:
   ollama:   { enabled: true }
   lmstudio: { enabled: true }
   plan:     { enabled: false }     # ToS 风险自担
+
+# 运行时生命周期（S2）：start_command 必须是列表形式；留空 = 只读监控
+# 安全规则：manager 只按它自己启动的 PID 停止进程
+# runtimes:
+#   ollama:
+#     url: "http://127.0.0.1:11434"
+#     start_command: ["ollama", "serve"]
+#   comfyui:
+#     url: "http://127.0.0.1:8188"
+#     # start_command: ["cmd", "/c", "F:\\ComfyUI\\run_nvidia_gpu.bat"]

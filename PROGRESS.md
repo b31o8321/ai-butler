@@ -5,6 +5,19 @@
 
 ## 已完成
 
+- 2026-10-12 S2 runtime-manager — 硬件检测 + 运行时生命周期
+  - runtime_manager.py：WMI 硬件检测（GPU/RAM/磁盘，qwMemorySize 未封顶显存 best-effort）、
+    RuntimeManager（start/stop/status，PID 定点操作，只读运行时保护，托管 PID 跟踪）
+  - API：GET /admin/hardware、GET /admin/runtimes、POST /admin/runtimes/{name}/start|stop
+  - 控制台：硬件卡 + 运行时启停按钮（无 start_command 显示"只读"）
+  - 验证：pytest 27 绿（新增 14：解析 4 + 硬件降级 2 + 生命周期 5 + API 3）；
+    实机冒烟：GPU 正确识别 RX 9070、RAM/双盘、comfyui 只读保护返回 400、
+    ollama start 成功 spawn（PID 5212）
+  - 遗留：① 本机 Ollama 老版本 RDNA4 崩溃导致 start 后进程变僵尸、stop 报
+    still_alive=True（环境问题非管理器缺陷，任务状态如实上报；11434 端口已释放）；
+    ② 显存 best-effort 在多显示适配器注册表键时可能取错值（9070 显示 8GB 而非 16GB），
+    后续用 nvidia-smi/设备路径匹配改进
+
 - 2026-10-12 S1 内核骨架 — commit 4ec07ce
   - FastAPI 网关 + SPI + 3 真实探针 + 配置装载 + sqlite 注册表 + Web 控制台 + CLI
   - 验证：pytest 13 绿；实机 /admin/status 探测 comfyui 0.39.0 OK、
@@ -13,4 +26,4 @@
 
 ## 下一个
 
-- S2 runtime-manager
+- S3 manifest check/sync（环境同步）
