@@ -1,0 +1,18 @@
+# 网关自身配置（不入 git 的密钥放密钥库/.env）
+server:
+  host: 0.0.0.0
+  port: 9000
+
+routes:
+  llm:
+    prefer: [ollama, lmstudio]     # 优先本地运行时
+    fallback: []                   # 可挂 plan-adapter / 云端
+policy:
+  gpu_exclusive_window: { minutes: 30 }   # ComfyUI 生图期间 LLM 走回退
+  max_concurrent_tasks: 1
+
+adapters:
+  comfyui:  { enabled: true }
+  ollama:   { enabled: true }
+  lmstudio: { enabled: true }
+  plan:     { enabled: false }     # ToS 风险自担

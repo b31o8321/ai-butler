@@ -1,0 +1,40 @@
+version: 1
+
+runtimes:
+  comfyui: { url: "http://127.0.0.1:8188" }
+  ollama:  { url: "http://127.0.0.1:11434" }
+  lmstudio: { url: "http://127.0.0.1:1234/v1" }
+
+# 期望存在的模型 —— butler check 的依据、butler sync 的下载清单
+# kind: checkpoint | lora | diffusion_model | vae | text_encoder | llm
+# source 支持 modelscope / hf / hf-mirror / url，primary 失败自动 fallback
+models:
+  - name: noobaiXL_v1.1
+    kind: checkpoint
+    dir: checkpoints
+    source:
+      primary:   { type: modelscope, repo: Laxhar/noobai-XL-1.1, file: NoobAI-XL-v1.1.safetensors }
+      fallback:
+        - { type: hf-mirror, repo: Laxhar/noobai-XL-1.1, file: NoobAI-XL-v1.1.safetensors }
+    sha256: null
+
+  - name: wan22_i2v_14B_high
+    kind: diffusion_model
+    dir: diffusion_models
+    source:
+      primary: { type: modelscope, repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged,
+                 file: split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors }
+
+  - name: t2v_nsfw_HN
+    kind: lora
+    dir: loras
+    source:
+      primary: { type: hf, repo: jaysowen/wan2.2-nsfw-loras,
+                 path: "wan2.2 high/NSFW运动增强器_HN_V1.safetensors" }
+
+  - name: qwen3_14b_gm
+    kind: llm
+    runtime: lmstudio            # 已装则跳过；ollama 运行时走 pull
+
+custom_nodes:                  # 兼容 ComfyUI-Manager 快照导入
+  snapshot_file: snapshots/comfy_nodes.json
