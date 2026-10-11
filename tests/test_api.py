@@ -118,3 +118,74 @@ def test_runtime_start_readonly_400(tmp_path):
         r = c.post("/admin/runtimes/comfyui/start")
         assert r.status_code == 400
         assert "read-only" in r.json()["detail"]
+
+
+# ---------- S4 presets & tasks endpoints ----------
+
+class StubExecutor:
+    def __init__(self, fail=False):
+        self.calls = []
+        self.fail = fail
+
+    def __call__(self, preset_dict, params):
+        self.calls.append((preset_dict["id"], params))
+        if self.fail:
+            raise RuntimeError("boom")
+        return {"status": "done", "files": ["/media/out.mp4"], "prompt_id": "p1"}
+
+
+def test_presets_listed(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    with TestClient(create_app(cfg, Registry(tmp_path / "db.db"))) as c:
+        r = c.get("/presets")
+        assert r.status_code == 200
+        ids = {p["id"] for p in r.json()["presets"]}
+        assert "snow-cat-t2v" in ids
+
+
+def test_preset_run_task_lifecycle(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    executor = StubExecutor()
+    with TestClient(create_app(cfg, Registry(tmp_path / "db.db"), executor=executor)) as c:
+        r = c.post("/presets/snow-cat-t2v/run", json={"params": {"prompt": "hi"}})
+        assert r.status_code == 200
+        task_id = r.json()["task_id"]
+        assert r.json()["status"] in ("queued", "running", "done")
+        import time
+        for _ in range(50):
+            task = c.get(f"/tasks/{task_id}").json()
+            if task["status"] in ("done", "failed"):
+                break
+            time.sleep(0.1)
+        assert task["status"] == "done"
+        assert task["result"]["files"] == ["/media/out.mp4"]
+        assert executor.calls[0][0] == "snow-cat-t2v"
+
+
+def test_preset_run_unknown_404(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    with TestClient(create_app(cfg, Registry(tmp_path / "db.db"), executor=StubExecutor())) as c:
+        assert c.post("/presets/nope/run", json={}).status_code == 404
+
+
+def test_preset_run_bad_params_400(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    with TestClient(create_app(cfg, Registry(tmp_path / "db.db"), executor=StubExecutor())) as c:
+        r = c.post("/presets/snow-cat-t2v/run", json={"params": {"nonsense": 1}})
+        assert r.status_code == 400
+        assert "unknown parameter" in r.json()["detail"]
+
+
+def test_preset_run_failure_marks_task_failed(tmp_path):
+    cfg = load_gateway(REPO / "configs" / "gateway.example.yaml")
+    with TestClient(create_app(cfg, Registry(tmp_path / "db.db"), executor=StubExecutor(fail=True))) as c:
+        r = c.post("/presets/snow-cat-t2v/run", json={"params": {"prompt": "hi"}})
+        task_id = r.json()["task_id"]
+        import time
+        for _ in range(50):
+            task = c.get(f"/tasks/{task_id}").json()
+            if task["status"] == "failed":
+                break
+            time.sleep(0.1)
+        assert task["status"] == "failed"
+        assert "boom" in task["error"]

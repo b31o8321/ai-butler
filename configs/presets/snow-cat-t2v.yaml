@@ -1,0 +1,18 @@
+# 雪景猫文生视频（ai-butler 内置预设 · 数据驱动注入示例）
+name: 雪景猫 T2V 4步
+kind: text-to-video
+adapter: comfyui
+workflow: workflows/snow_cat_t2v.json
+defaults:
+  prompt: 一只橘猫坐在雪地里，鹅毛大雪在深色松林背景前纷飞，暖黄路灯逆光，电影感
+  seed: 42
+  length: 81
+inputs:
+  - { name: prompt, type: string, required: true, max: 4000 }
+  - { name: seed, type: seed }
+  - { name: length, type: integer }
+inject:
+  - { node: "15", field: text, from: prompt }
+  - { node: "30", field: noise_seed, from: seed }
+  - { node: "17", field: length, from: length }
+policy: { queue: gpu, priority: normal }

@@ -1,0 +1,18 @@
+{
+  "10": {"class_type": "UNETLoader", "inputs": {"unet_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}},
+  "11": {"class_type": "UNETLoader", "inputs": {"unet_name": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}},
+  "12": {"class_type": "CLIPLoader", "inputs": {"clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan", "device": "default"}},
+  "13": {"class_type": "VAELoader", "inputs": {"vae_name": "wan_2.1_vae.safetensors"}},
+  "15": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["12", 0], "text": "POSITIVE_PLACEHOLDER"}},
+  "16": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["12", 0], "text": "NEGATIVE_PLACEHOLDER"}},
+  "17": {"class_type": "EmptyHunyuanLatentVideo", "inputs": {"width": 832, "height": 480, "length": 81, "batch_size": 1}},
+  "20": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["10", 0], "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors", "strength_model": 1.0}},
+  "21": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["20", 0], "shift": 5.0}},
+  "23": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["11", 0], "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors", "strength_model": 1.0}},
+  "24": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["23", 0], "shift": 5.0}},
+  "30": {"class_type": "KSamplerAdvanced", "inputs": {"model": ["21", 0], "positive": ["15", 0], "negative": ["16", 0], "latent_image": ["17", 0], "add_noise": "enable", "noise_seed": 0, "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "start_at_step": 0, "end_at_step": 2, "return_with_leftover_noise": "enable"}},
+  "31": {"class_type": "KSamplerAdvanced", "inputs": {"model": ["24", 0], "positive": ["15", 0], "negative": ["16", 0], "latent_image": ["30", 0], "add_noise": "disable", "noise_seed": 0, "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "start_at_step": 2, "end_at_step": 10000, "return_with_leftover_noise": "disable"}},
+  "32": {"class_type": "VAEDecode", "inputs": {"samples": ["31", 0], "vae": ["13", 0]}},
+  "33": {"class_type": "CreateVideo", "inputs": {"images": ["32", 0], "fps": 16}},
+  "34": {"class_type": "SaveVideo", "inputs": {"video": ["33", 0], "filename_prefix": "video/butler", "format": "auto", "codec": "auto"}}
+}
