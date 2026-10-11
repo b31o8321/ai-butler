@@ -5,7 +5,7 @@
 
 ## 已完成
 
-- 2026-10-13 S8 策略引擎 + 收尾 — commit (本轮) + v0.1.0 tag
+- 2026-10-13 S8 策略引擎 + 收尾 — commit dd4d8ab + tag v0.1.0
   - kernel/policy.py：GPU 独占窗口（占用 GPU 的任务种类来自配置）+ max_concurrent 上限
   - LLMRouter.should_skip_primary 策略钩子：GPU 忙 → 主后端跳过回退链接管；
     无回退可用 → 降级用主后端（可用性优先）；/presets run 并发超限 429
