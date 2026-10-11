@@ -5,6 +5,17 @@
 
 ## 已完成
 
+- 2026-10-13 S3 manifest check/sync — commit (本轮)
+  - sync.py：URL 构建（4 类源、按段转义）、镜像测速、断点续传、sha256 校验、聚合报告
+  - CLI：check 升级（models_root 三级解析）+ 新增 sync 命令（--only 过滤）；
+    gateway.yaml 缺失时 check/sync 可独立运行
+  - 验证：pytest 37 绿（本地 Range-capable HTTP 服务器夹具，非 mock）；
+    实机：ModelScope 真实小文件 MISSING → sync 下载 → check PRESENT
+  - 调试记录：①httpx.Timeout 需显式 default；②ModelScope 对小文件 Range 响应
+    content-length 虚高 → 连接提前关闭 → 测速需容忍短读 + 可达保底分；
+    ③url 类型源需在 target 检查前判断
+  - 遗留：resume 对"content-length 虚高"类源可能失败（全量下载不受影响，S8 回顾）
+
 - 2026-10-12 S2 runtime-manager — 硬件检测 + 运行时生命周期
   - runtime_manager.py：WMI 硬件检测（GPU/RAM/磁盘，qwMemorySize 未封顶显存 best-effort）、
     RuntimeManager（start/stop/status，PID 定点操作，只读运行时保护，托管 PID 跟踪）

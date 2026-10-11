@@ -41,13 +41,18 @@ FastAPI 服务 + 适配器 SPI + 3 真实探针 + 配置装载 + sqlite 注册�
   ollama 启停实测通过（start spawn ✓ / stop PID 定点 ✓ / 只读 400 ✓）
   ⚠️ 已知环境问题：本机 Ollama 老版本 RDNA4 崩溃致僵尸进程（stop 如实上报 still_alive）
 
-### [ ] S3 manifest check/sync（环境同步）
-- `butler check` 升级：对照 manifest 逐项报告 PRESENT/MISSING（含 models_root 解析）
-- `butler sync`：对 MISSING 项按 source 优先级下载（modelscope/hf-mirror/hf/url），
-  镜像测速（range 采样选最快）、断点续传（-C -）、落位到正确目录、可选 sha256 校验
-- 下载走 detached curl 或 httpx 流式，全程事件写注册表
-- 测试：本地 http server 夹具测下载/续传/测速逻辑
-- 验收：删除一个真实模型文件后 sync 自动补齐并校验通过（用小文件验证，大模型不强制）
+### [x] S3 manifest check/sync（环境同步）
+- sync.py：build_source_url（modelscope/hf/hf-mirror/url，按段转义）、
+  measure_speed（Range 采样，容忍 CDN 短读）、pick_source（择速）、
+  download_file（.part 断点续传 + sha256 校验，不匹配即删）、sync_missing（聚合报告）
+- `butler check` 升级：models_root 三级解析（--models-root > gateway paths > manifest paths）；
+  gateway.yaml 缺失时 check/sync 可独立运行（load_gateway_optional）
+- `butler sync` 命令 + --only 单项过滤；事件流实时输出
+- 测试：本地 Range-capable HTTP 服务器夹具（真服务器非 mock）10 项：
+  下载/sha256/续传（断言 Range 头）/择速/聚合
+- 验收：实机删除后 sync 从 ModelScope 自动补齐真实文件 → check 转 PRESENT
+  ⚠️ 已知边界：部分 CDN 对小文件 Range 响应头不一致（content-length 虚高），
+  测速与续传已做容忍；resume 遇此类源可能失败（全量下载不受影响）
 
 ### [ ] S4 comfyui-adapter execute（预设执行）
 - 按 preset 的 inject 映射把参数写入工作流 JSON → POST /prompt → 轮询 /history → 取回产物落盘

@@ -1,5 +1,8 @@
 version: 1
 
+paths:
+  models_root: "C:\\ComfyUI\\models"   # check/sync 的落位根目录（按需修改）
+
 runtimes:
   comfyui: { url: "http://127.0.0.1:8188" }
   ollama:  { url: "http://127.0.0.1:11434" }

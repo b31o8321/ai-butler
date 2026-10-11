@@ -54,6 +54,7 @@ class GatewayConfig:
     routes: RoutesConfig = field(default_factory=RoutesConfig)
     adapters: dict[str, AdapterConfig] = field(default_factory=dict)
     runtimes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    paths: dict[str, str] = field(default_factory=dict)
     source_file: Path | None = None
 
 
@@ -63,6 +64,7 @@ class ModelSource:
     repo: str | None = None
     file: str | None = None
     path: str | None = None
+    url: str | None = None
 
 
 @dataclass
@@ -72,6 +74,7 @@ class ModelEntry:
     dir: str
     sources: list[ModelSource] = field(default_factory=list)
     runtime: str | None = None
+    sha256: str | None = None
 
     @property
     def filename(self) -> str:
@@ -90,6 +93,7 @@ class Manifest:
     runtimes: dict[str, dict[str, Any]] = field(default_factory=dict)
     models: list[ModelEntry] = field(default_factory=list)
     custom_nodes: dict[str, Any] = field(default_factory=dict)
+    paths: dict[str, str] = field(default_factory=dict)
     source_file: Path | None = None
 
 
@@ -98,6 +102,14 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"config not found: {path}")
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def load_gateway_optional(path: Path) -> GatewayConfig:
+    """Load gateway config; fall back to defaults when the file is absent
+    (manifest-only workflows like check/sync must run standalone)."""
+    if not Path(path).exists():
+        return GatewayConfig()
+    return load_gateway(path)
 
 
 def load_gateway(path: Path) -> GatewayConfig:
@@ -119,6 +131,7 @@ def load_gateway(path: Path) -> GatewayConfig:
         adapters={name: AdapterConfig(enabled=bool(spec.get("enabled", True)))
                   for name, spec in adapters_raw.items()},
         runtimes={name: dict(spec) for name, spec in (raw.get("runtimes") or {}).items()},
+        paths={k: str(v) for k, v in (raw.get("paths") or {}).items()},
         source_file=path,
     )
     return cfg
@@ -133,16 +146,19 @@ def load_manifest(path: Path) -> Manifest:
         primary = src.get("primary")
         if primary:
             sources.append(ModelSource(type=primary.get("type", ""), repo=primary.get("repo"),
-                                       file=primary.get("file"), path=primary.get("path")))
+                                       file=primary.get("file"), path=primary.get("path"),
+                                       url=primary.get("url")))
         for fb in src.get("fallback") or []:
             sources.append(ModelSource(type=fb.get("type", ""), repo=fb.get("repo"),
-                                       file=fb.get("file"), path=fb.get("path")))
+                                       file=fb.get("file"), path=fb.get("path"),
+                                       url=fb.get("url")))
         models.append(ModelEntry(name=str(entry.get("name")), kind=str(entry.get("kind", "")),
                                  dir=str(entry.get("dir", "")), sources=sources,
-                                 runtime=entry.get("runtime")))
+                                 runtime=entry.get("runtime"), sha256=entry.get("sha256")))
     cfg = Manifest(version=int(raw.get("version", 1)),
                    runtimes={k: dict(v) for k, v in (raw.get("runtimes") or {}).items()},
                    models=models,
                    custom_nodes=dict(raw.get("custom_nodes") or {}),
+                   paths={k: str(v) for k, v in (raw.get("paths") or {}).items()},
                    source_file=path)
     return cfg

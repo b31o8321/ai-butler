@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .config import default_home, load_gateway, load_manifest
+from .config import default_home, load_gateway, load_gateway_optional, load_manifest
 
 
 def _resolve(path_str: str | None, name: str) -> Path:
@@ -20,6 +20,11 @@ def _resolve(path_str: str | None, name: str) -> Path:
         return candidate
     dev = Path(__file__).resolve().parents[2] / "configs" / name
     return dev if dev.exists() else candidate
+
+
+def _load_gateway_soft(path_str: str | None) -> "tuple[Any, Path]":
+    path = _resolve(path_str, "gateway.yaml")
+    return load_gateway_optional(path), path
 
 
 async def _status_async(args) -> int:
@@ -57,22 +62,29 @@ def _cmd_serve(args) -> int:
     return 0
 
 
+def _resolve_models_root(args, gateway_cfg, manifest_cfg) -> Path | None:
+    """--models-root > gateway.yaml paths.models_root > manifest paths.models_root."""
+    if getattr(args, "models_root", None):
+        return Path(args.models_root)
+    for source in (gateway_cfg, manifest_cfg):
+        value = (source.paths or {}).get("models_root")
+        if value:
+            return Path(value)
+    return None
+
+
 def _cmd_check(args) -> int:
-    cfg = load_gateway(_resolve(args.gateway, "gateway.yaml"))
+    cfg, gateway_path = _load_gateway_soft(args.gateway)
     manifest = load_manifest(_resolve(args.manifest, "manifest.yaml"))
-    comfy_root = None
-    for rt in manifest.runtimes.values():
-        if rt.get("models_root"):
-            comfy_root = Path(rt["models_root"])
-    if args.models_root:
-        comfy_root = Path(args.models_root)
+    models_root = _resolve_models_root(args, cfg, manifest)
     print(f"manifest v{manifest.version}: {len(manifest.models)} model entries")
+    print(f"models_root: {models_root or '(未配置)'}")
     missing = 0
     for m in manifest.models:
         if m.runtime:
             print(f"  [RUNTIME ] {m.name}  -> runtime '{m.runtime}'")
             continue
-        expected = comfy_root / m.dir / m.filename if comfy_root else None
+        expected = models_root / m.dir / m.filename if models_root else None
         present = expected.exists() if expected else None
         state = "PRESENT" if present else ("UNKNOWN" if present is None else "MISSING")
         if not present:
@@ -81,6 +93,28 @@ def _cmd_check(args) -> int:
         print(f"  [{state:8s}] {m.name:22s} {m.kind:16s} {loc}")
     print(f"\nsummary: {len(manifest.models) - missing}/{len(manifest.models)} present, {missing} missing")
     return 1 if missing and args.strict else 0
+
+
+def _cmd_sync(args) -> int:
+    from .sync import sync_missing
+
+    cfg, gateway_path = _load_gateway_soft(args.gateway)
+    manifest = load_manifest(_resolve(args.manifest, "manifest.yaml"))
+    models_root = _resolve_models_root(args, cfg, manifest)
+    if models_root is None:
+        print("FAIL: models_root 未配置（--models-root 或 paths.models_root）")
+        return 2
+
+    def emit(kind: str, payload: dict) -> None:
+        print(f"  [{kind}] {json.dumps(payload, ensure_ascii=False)[:160]}")
+
+    print(f"sync target: {models_root}" + (f"  (only: {args.only})" if args.only else ""))
+    report = sync_missing(manifest.models, models_root, emit=emit, only=args.only)
+    print(f"\nsync summary: present={report['present']}  downloaded={report['downloaded']}  "
+          f"failed={len(report['failed'])}  total={report['total']}")
+    for failure in report["failed"]:
+        print(f"  FAILED {failure['name']}: {failure.get('error', '')[:150]}")
+    return 0 if not report["failed"] else 1
 
 
 def _cmd_service(args) -> int:
@@ -131,6 +165,13 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--models-root", default=None, help="ComfyUI models dir override")
     check.add_argument("--strict", action="store_true", help="exit 1 when anything is missing")
     check.set_defaults(func=_cmd_check)
+
+    sync = sub.add_parser("sync", help="download manifest entries missing from the local environment")
+    sync.add_argument("--gateway", default=None)
+    sync.add_argument("--manifest", default=None)
+    sync.add_argument("--models-root", default=None, help="ComfyUI models dir override")
+    sync.add_argument("--only", default=None, help="sync a single model by name")
+    sync.set_defaults(func=_cmd_sync)
 
     service = sub.add_parser("service", help="manage logon autostart (Windows)")
     service.add_argument("action", choices=["install", "uninstall"])
