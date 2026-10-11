@@ -1,0 +1,6 @@
+# 轻量入门：8GB 显存档位
+name: 轻量入门
+description: SDXL base 出图 + 小型对话模型，低配显卡也能跑
+models: []   # 示例频道：按需补充 manifest 中的轻量模型名
+workflows: []
+presets: []

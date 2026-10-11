@@ -28,12 +28,42 @@ models:
       primary: { type: modelscope, repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged,
                  file: split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors }
 
+  - name: wan22_i2v_14B_low
+    kind: diffusion_model
+    dir: diffusion_models
+    source:
+      primary: { type: modelscope, repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged,
+                 file: split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors }
+
+  - name: wan22_t2v_14B_high
+    kind: diffusion_model
+    dir: diffusion_models
+    source:
+      primary: { type: modelscope, repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged,
+                 file: split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors }
+
+  - name: wan22_t2v_14B_low
+    kind: diffusion_model
+    dir: diffusion_models
+    source:
+      primary: { type: modelscope, repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged,
+                 file: split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors }
+
   - name: t2v_nsfw_HN
     kind: lora
     dir: loras
+    filename: t2v_nsfw_HN.safetensors
     source:
       primary: { type: hf, repo: jaysowen/wan2.2-nsfw-loras,
                  path: "wan2.2 high/NSFW运动增强器_HN_V1.safetensors" }
+
+  - name: t2v_nsfw_LN
+    kind: lora
+    dir: loras
+    filename: t2v_nsfw_LN.safetensors
+    source:
+      primary: { type: hf, repo: jaysowen/wan2.2-nsfw-loras,
+                 path: "wan2.2 low/NSFW运动增强器_LN_V1.safetensors" }
 
   - name: qwen3_14b_gm
     kind: llm

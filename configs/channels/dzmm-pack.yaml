@@ -1,0 +1,16 @@
+# 跑团全家桶（DZMM 伴侣包）：16GB VRAM 档位
+name: 跑团全家桶
+description: DZMM 视觉层 + GM 本地模型全套：NoobAI 立绘、Wan2.2 14B 视频对、T2V NSFW LoRA、Qwen3-14B GM
+models:
+  - noobaiXL_v1.1
+  - wan22_i2v_14B_high
+  - wan22_i2v_14B_low
+  - wan22_t2v_14B_high
+  - wan22_t2v_14B_low
+  - t2v_nsfw_HN
+  - t2v_nsfw_LN
+  - qwen3_14b_gm
+workflows:
+  - workflows/snow_cat_t2v.json
+presets:
+  - snow-cat-t2v

@@ -84,7 +84,7 @@ def _cmd_check(args) -> int:
         if m.runtime:
             print(f"  [RUNTIME ] {m.name}  -> runtime '{m.runtime}'")
             continue
-        expected = models_root / m.dir / m.filename if models_root else None
+        expected = models_root / m.dir / m.resolved_filename if models_root else None
         present = expected.exists() if expected else None
         state = "PRESENT" if present else ("UNKNOWN" if present is None else "MISSING")
         if not present:

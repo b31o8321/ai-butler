@@ -13,7 +13,8 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .adapters import build_adapters
-from .config import GatewayConfig
+from .channels import ChannelStore, channel_diff, install_channel
+from .config import GatewayConfig, load_manifest
 from .kernel.registry import Registry
 from .kernel.tasks import TaskStore
 from .presets import PresetStore, resolve_params
@@ -38,9 +39,18 @@ def create_app(config: GatewayConfig, registry: Registry,
     repo_configs = Path(__file__).resolve().parents[2] / "configs"
     data_home = registry.db_path.parent.parent
     preset_dirs = [data_home / "presets", repo_configs / "presets"]
+    channel_dirs = [data_home / "channels", repo_configs / "channels"]
     workflow_dirs = [data_home, repo_configs]
     media_dir = data_home / "media"
     app.state.preset_store = preset_store or PresetStore(preset_dirs)
+    app.state.channel_store = ChannelStore(channel_dirs)
+
+    manifest_path = Path(config.paths.get("manifest") or (repo_configs / "manifest.yaml"))
+    manifest_cfg = load_manifest(manifest_path) if manifest_path.exists() else None
+    app.state.manifest = manifest_cfg
+    models_root_value = config.paths.get("models_root") or \
+        (manifest_cfg.paths.get("models_root") if manifest_cfg else None)
+    app.state.models_root = Path(models_root_value) if models_root_value else None
 
     def default_executor(preset_dict: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         adapter = next((a for a in adapters if a.name == preset_dict.get("adapter")), None)
@@ -167,6 +177,51 @@ def create_app(config: GatewayConfig, registry: Registry,
         if task is None:
             raise HTTPException(status_code=404, detail=f"unknown task: {task_id}")
         return task
+
+    # ---- channels (S5) ----
+
+    @app.get("/admin/channels")
+    async def list_channels() -> dict[str, Any]:
+        if app.state.manifest is None:
+            raise HTTPException(status_code=400, detail="manifest not configured")
+        channels = []
+        for channel in app.state.channel_store.list():
+            try:
+                diff = channel_diff(channel, app.state.manifest, app.state.models_root)
+            except ValueError as exc:
+                diff = {"id": channel.id, "name": channel.name,
+                        "error": str(exc)[:200]}
+            channels.append(diff)
+        return {"channels": channels, "models_root": str(app.state.models_root or "")}
+
+    @app.post("/admin/channels/{channel_id}/install")
+    async def install_channel_endpoint(channel_id: str) -> dict[str, Any]:
+        channel = app.state.channel_store.get(channel_id)
+        if channel is None:
+            raise HTTPException(status_code=404, detail=f"unknown channel: {channel_id}")
+        if app.state.manifest is None:
+            raise HTTPException(status_code=400, detail="manifest not configured")
+        task_store: TaskStore = app.state.task_store
+        task_id = uuid.uuid4().hex[:12]
+        task_store.create(task_id, kind="channel-install",
+                          payload={"channel": channel.id})
+
+        def _worker() -> None:
+            try:
+                task_store.set_status(task_id, "running")
+                report = install_channel(
+                    channel, app.state.manifest, app.state.models_root,
+                    emit=lambda kind, payload: registry.append(
+                        "channel_" + kind, {"task": task_id, **payload}))
+                task_store.set_status(task_id, "done", result=report)
+            except Exception as exc:
+                try:
+                    task_store.set_status(task_id, "failed", error=str(exc)[:800])
+                except ValueError:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True, name=f"channel-{task_id}").start()
+        return {"task_id": task_id, "status": "queued"}
 
     @app.get("/v1/models")
     async def list_models():

@@ -47,6 +47,10 @@
     </div>
   </div>
   <div class="card">
+    <h3>预设包频道</h3>
+    <div class="meta" id="channels">loading…</div>
+  </div>
+  <div class="card">
     <h3>策略 / 路由</h3>
     <div class="meta" id="policy">loading…</div>
   </div>
@@ -122,11 +126,47 @@ async function runtimeAction(name, action) {
   await loadRuntimes();
 }
 
+const statePill = st => {
+  const map = { present: 'ok', missing: 'down', runtime: 'off', unknown: 'off' };
+  return `<span class="dot ${map[st] || 'off'}"></span>`;
+};
+
+async function loadChannels() {
+  try {
+    const data = await (await fetch('/admin/channels')).json();
+    document.getElementById('channels').innerHTML = data.channels.map(ch => {
+      if (ch.error) return `<b>${esc(ch.name)}</b><div class="meta">错误: ${esc(ch.error)}</div>`;
+      const models = ch.models.map(m =>
+        `${statePill(m.state)}${esc(m.name)} <small>(${m.state})</small>`).join('<br>');
+      const btn = ch.missing_count > 0
+        ? `<button style="float:right;padding:4px 12px;font-size:12px"
+             onclick="installChannel('${esc(ch.id)}')">安装缺失 ${ch.missing_count} 项</button>`
+        : '<span class="pill">全部就绪</span>';
+      return `<div style="border-top:1px dashed #4d3f2a;padding-top:10px;margin-top:10px">
+        <b>${esc(ch.name)}</b> ${btn}
+        <div class="meta">${esc(ch.description || '')}</div>
+        <div class="meta" style="margin-top:6px">${models}</div>
+        ${ch.presets.length ? `<div class="meta">预设: ${ch.presets.map(esc).join(', ')}</div>` : ''}
+      </div>`;
+    }).join('') || '无频道';
+  } catch (e) {
+    document.getElementById('channels').textContent = '加载失败: ' + e;
+  }
+}
+
+async function installChannel(id) {
+  const r = await (await fetch(`/admin/channels/${id}/install`, { method: 'POST' })).json();
+  document.getElementById('channels').insertAdjacentHTML('beforeend',
+    `<div class="meta">安装任务已提交: <code>${esc(r.task_id)}</code>（在任务列表追踪）</div>`);
+}
+
 refresh();
 loadHardware();
 loadRuntimes();
+loadChannels();
 setInterval(refresh, 15000);
 setInterval(loadRuntimes, 15000);
+setInterval(loadChannels, 30000);
 </script>
 </body>
 </html>

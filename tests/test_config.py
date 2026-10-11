@@ -21,7 +21,7 @@ def test_load_manifest_example():
     names = {entry.name for entry in m.models}
     assert {"noobaiXL_v1.1", "wan22_i2v_14B_high", "qwen3_14b_gm"} <= names
     noobai = next(e for e in m.models if e.name == "noobaiXL_v1.1")
-    assert noobai.filename == "NoobAI-XL-v1.1.safetensors"
+    assert noobai.resolved_filename == "NoobAI-XL-v1.1.safetensors"
     assert noobai.sources[0].type == "modelscope"
     # fallback present
     assert len(noobai.sources) >= 2

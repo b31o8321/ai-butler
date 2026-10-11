@@ -75,10 +75,13 @@ class ModelEntry:
     sources: list[ModelSource] = field(default_factory=list)
     runtime: str | None = None
     sha256: str | None = None
+    filename: str | None = None   # explicit on-disk name; overrides source basename
 
     @property
-    def filename(self) -> str:
+    def resolved_filename(self) -> str:
         """Best-known on-disk filename for presence checks."""
+        if self.filename:
+            return self.filename
         for src in self.sources:
             if src.file:
                 return Path(src.file).name
@@ -154,7 +157,8 @@ def load_manifest(path: Path) -> Manifest:
                                        url=fb.get("url")))
         models.append(ModelEntry(name=str(entry.get("name")), kind=str(entry.get("kind", "")),
                                  dir=str(entry.get("dir", "")), sources=sources,
-                                 runtime=entry.get("runtime"), sha256=entry.get("sha256")))
+                                 runtime=entry.get("runtime"), sha256=entry.get("sha256"),
+                                 filename=entry.get("filename")))
     cfg = Manifest(version=int(raw.get("version", 1)),
                    runtimes={k: dict(v) for k, v in (raw.get("runtimes") or {}).items()},
                    models=models,

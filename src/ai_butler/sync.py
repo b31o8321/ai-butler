@@ -1,4 +1,4 @@
-"""Environment sync: manifest-driven model download with mirror selection.
+﻿"""Environment sync: manifest-driven model download with mirror selection.
 
 Ops-layer module. Sources are declared data (ModelSource), never kernel code.
 Downloads are streaming with .part resume support and optional sha256 verify.
@@ -120,7 +120,7 @@ def download_file(url: str, dest: Path, *, sha256: str | None = None,
                           timeout=httpx.Timeout(300.0, connect=15.0, read=120.0),
                           follow_redirects=True) as resp:
             if start and resp.status_code == 200:
-                # server ignored Range — restart from scratch
+                # server ignored Range 鈥?restart from scratch
                 start = 0
                 resumed = False
             resp.raise_for_status()
@@ -153,7 +153,7 @@ def download_file(url: str, dest: Path, *, sha256: str | None = None,
 def sync_entry(entry: ModelEntry, models_root: Path, *,
                emit: Emit | None = None, force: bool = False) -> dict[str, Any]:
     """Ensure one manifest entry: PRESENT (skip), download+verify, or report no-source."""
-    dest = models_root / entry.dir / entry.filename
+    dest = models_root / entry.dir / entry.resolved_filename
     if dest.exists() and not force:
         if emit:
             emit("sync_present", {"name": entry.name, "dest": str(dest)})
